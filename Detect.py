@@ -88,35 +88,6 @@ def evaluate(detections_rowcol, ground_truth_xyxy, iou_threshold=0.5):
                 per_det_iou=per_det_iou)
 
 
-def parabolic_subpixel(corr_map, row, col):
-    """
-    Fit a 1-D parabola through 3 points in each axis to find the sub-pixel
-    maximum of corr_map near (row, col).
-
-    For a maximum at x0 with neighbours f(-1), f(0), f(+1):
-        offset = 0.5 * (f(-1) - f(+1)) / (f(-1) - 2*f(0) + f(+1))
-
-    Returns (row_sub, col_sub) as floats.
-    """
-    H, W = corr_map.shape
-    row_sub = float(row)
-    col_sub = float(col)
-
-    if 0 < row < H - 1:
-        fy_m, fy_0, fy_p = corr_map[row-1, col], corr_map[row, col], corr_map[row+1, col]
-        d = fy_m - 2*fy_0 + fy_p
-        if abs(d) > 1e-10:
-            row_sub = row + 0.5 * (fy_m - fy_p) / d
-
-    if 0 < col < W - 1:
-        fx_m, fx_0, fx_p = corr_map[row, col-1], corr_map[row, col], corr_map[row, col+1]
-        d = fx_m - 2*fx_0 + fx_p
-        if abs(d) > 1e-10:
-            col_sub = col + 0.5 * (fx_m - fx_p) / d
-
-    return row_sub, col_sub
-
-
 def draw_detections(image, detections, ground_truth=None,
                     figsize=(12, 12), linewidth=2, save_path="output.png"):
     """
