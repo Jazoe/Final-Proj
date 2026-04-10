@@ -117,69 +117,6 @@ def parabolic_subpixel(corr_map, row, col):
     return row_sub, col_sub
 
 
-def refine_detection(img_float, img_t, row, col, h_t, w_t, scale, angle, scales):
-    """
-    Locally optimise a coarse detection by:
-      1. Scale refinement  — try ±2 linspace steps around `scale`
-      2. Rotation refinement — try ±5° in 2.5° steps around `angle`
-      3. Sub-pixel localisation — parabolic fit on the best correlation map
-
-    For each (scale, angle) candidate the coin center is held fixed in image
-    space (derived from the coarse top-left + half template size), and the
-    expected top-left in the new correlation map is recomputed accordingly.
-
-    Returns (row_sub, col_sub, h_new, w_new, best_score).
-    """
-    H, W = img_float.shape
-    cy_img = row + h_t // 2   # coin centre in image space (from coarse detection)
-    cx_img = col + w_t // 2
-
-    scale_step = (scales[-1] - scales[0]) / (len(scales) - 1) if len(scales) > 1 else 0.0
-    refine_scales = np.unique(np.clip(
-        [scale + i * scale_step for i in range(-2, 3)],
-        scales[0], scales[-1]
-    ))
-    refine_angles = [angle + da for da in np.arange(-5.0, 5.01, 2.5)]
-
-    best_score = -np.inf
-    best_params = (row, col, h_t, w_t)
-    best_corr   = None
-    best_r      = row
-    best_c      = col
-
-    for s in refine_scales:
-        new_h = max(1, int(img_t.shape[0] * s))
-        new_w = max(1, int(img_t.shape[1] * s))
-        tmpl_base = apply_circular_mask(cv.resize(img_t, (new_w, new_h)))
-
-        for a in refine_angles:
-            tmpl = rotate_template(tmpl_base, float(a))
-            th, tw = tmpl.shape
-            if th >= H or tw >= W:
-                continue
-
-            corr = cv.matchTemplate(img_float, tmpl, cv.TM_CCOEFF_NORMED)
-
-            # Top-left in corr space that places the template centre over the coin centre
-            r_exp = int(round(cy_img - th / 2))
-            c_exp = int(round(cx_img - tw / 2))
-            r_exp = max(0, min(r_exp, corr.shape[0] - 1))
-            c_exp = max(0, min(c_exp, corr.shape[1] - 1))
-
-            score = float(corr[r_exp, c_exp])
-            if score > best_score:
-                best_score  = score
-                best_corr   = corr
-                best_r, best_c = r_exp, c_exp
-                best_params = (r_exp, c_exp, th, tw)
-
-    if best_corr is not None:
-        row_sub, col_sub = parabolic_subpixel(best_corr, best_r, best_c)
-        return (row_sub, col_sub, best_params[2], best_params[3], best_score)
-
-    return (float(row), float(col), h_t, w_t, best_score)
-
-
 def draw_detections(image, detections, ground_truth=None,
                     figsize=(12, 12), linewidth=2, save_path="output.png"):
     """
@@ -223,9 +160,9 @@ def draw_detections(image, detections, ground_truth=None,
 # img_t = cv.imread('template.jpg', 0)
 # img   = cv.imread('lemons.jpg', 0)
 
-img = cv.imread('coins-1/20210328_161615.jpg', 0)
+img = cv.imread('coins-1/20210324_151127.jpg', 0)
 img_t = cv.imread('cointemp.jpg', 0)
-# gt    = load_ground_truth('coins-1/20210324_151127.xml')
+gt    = load_ground_truth('coins-1/20210324_151127.xml')
 
 H, W = img.shape
 
@@ -235,7 +172,7 @@ img_f  = np.fft.fft2(img_zm)
 # Search parameters
 scales        = np.linspace(0.25, 1.25, 20)
 angles        = np.arange(0, 360, 30)
-THRESHOLD_REL = 0.99
+# THRESHOLD_REL = 0.99
 IOU_THRESHOLD = 0.3
 
 # Multi-scale, multi-rotation correlation
@@ -253,40 +190,82 @@ def center_inside_confirmed(row, col, h_t, w_t):
             return True
     return False
 
+img_float = img.astype(np.float32)
+
 for scale in sorted(scales, reverse=True):
     new_h = max(1, int(img_t.shape[0] * scale))
     new_w = max(1, int(img_t.shape[1] * scale))
     tmpl_scaled = apply_circular_mask(cv.resize(img_t, (new_w, new_h)))
+    h_t, w_t = tmpl_scaled.shape  # unrotated template size — defines our coordinate system
+
+    if h_t > H or w_t > W:
+        continue
+
+    # Output map aligned to unrotated-template coordinates.
+    # Position (r, c) here means "unrotated template top-left at image (r, c)".
+    H_out = H - h_t + 1
+    W_out = W - w_t + 1
+    best_corr = np.full((H_out, W_out), -np.inf, dtype=np.float32)
 
     for angle in angles:
         tmpl = rotate_template(tmpl_scaled, angle)
-        h_t, w_t = tmpl.shape
-        if h_t > H or w_t > W:
+        th_r, tw_r = tmpl.shape  # rotated size — larger than (h_t, w_t)
+        if th_r > H or tw_r > W:
             continue
 
-        # corr = fft_correlate(img_f, tmpl, (H, W))
-        img_float = img.astype(np.float32)
         corr = cv.matchTemplate(img_float, tmpl, cv.TM_CCOEFF_NORMED)
-        inverted = -corr
-        min_dist = max(10, min(h_t, w_t) // 3)
-        # peaks = peak_local_max(inverted, min_distance=min_dist, threshold_rel=THRESHOLD_REL)
-        peaks = peak_local_max(inverted, min_distance=min_dist, threshold_abs=0.65)
+        corr = -corr
+        # corr[r, c] = score when rotated template's top-left is at image (r, c).
+        # The original object's center is at (r + th_r//2, c + tw_r//2).
+        # In unrotated coords, top-left = center - (h_t//2, w_t//2)
+        #   => unrotated row = r + (th_r - h_t) // 2
+        #   => unrotated col = c + (tw_r - w_t) // 2
+        row_off = (th_r - h_t) // 2
+        col_off = (tw_r - w_t) // 2
 
-        # Best-scoring peak at this scale/angle confirmed first
-        for (row, col) in sorted(peaks, key=lambda p: inverted[p[0], p[1]], reverse=True):
-            if not center_inside_confirmed(row, col, h_t, w_t):
-                confirmed.append((row, col, h_t, w_t, inverted[row, col]))
+        # Destination region in best_corr
+        r0 = row_off
+        c0 = col_off
+        r1 = r0 + corr.shape[0]
+        c1 = c0 + corr.shape[1]
+
+        # Clip to output map bounds
+        r0c, c0c = max(0, r0), max(0, c0)
+        r1c, c1c = min(H_out, r1), min(W_out, c1)
+
+        # Corresponding source region in corr
+        cr0 = r0c - r0
+        cc0 = c0c - c0
+        cr1 = cr0 + (r1c - r0c)
+        cc1 = cc0 + (c1c - c0c)
+
+        if r1c > r0c and c1c > c0c:
+            best_corr[r0c:r1c, c0c:c1c] = np.maximum(
+                best_corr[r0c:r1c, c0c:c1c],
+                corr[cr0:cr1, cc0:cc1]
+            )
+
+    # Mask out -inf padding before peak detection
+    valid = best_corr > -np.inf
+    best_corr[~valid] = 0.0
+
+    min_dist = max(10, min(h_t, w_t) // 3)
+    peaks = peak_local_max(best_corr, min_distance=min_dist, threshold_abs=0.5)
+
+    for (row, col) in sorted(peaks, key=lambda p: best_corr[p[0], p[1]], reverse=True):
+        if not center_inside_confirmed(row, col, h_t, w_t):
+            confirmed.append((row, col, h_t, w_t, best_corr[row, col]))
 
 final_detections = confirmed
 
 # Evaluate against ground truth
 det_boxes = [(d[0], d[1], d[2], d[3]) for d in final_detections]
-# metrics   = evaluate(det_boxes, gt, IOU_THRESHOLD)
+metrics   = evaluate(det_boxes, gt, IOU_THRESHOLD)
 
-# print(f"\nDetected: {len(final_detections)}   Ground truth: {len(gt)}")
-# print(f"TP={metrics['TP']}  FP={metrics['FP']}  FN={metrics['FN']}")
-# print(f"Precision={metrics['precision']:.2f}  Recall={metrics['recall']:.2f}  F1={metrics['f1']:.2f}")
-# print(f"\nPer-detection best IoU: {[round(v,2) for v in metrics['per_det_iou']]}")
+print(f"\nDetected: {len(final_detections)}   Ground truth: {len(gt)}")
+print(f"TP={metrics['TP']}  FP={metrics['FP']}  FN={metrics['FN']}")
+print(f"Precision={metrics['precision']:.2f}  Recall={metrics['recall']:.2f}  F1={metrics['f1']:.2f}")
+print(f"\nPer-detection best IoU: {[round(v,2) for v in metrics['per_det_iou']]}")
 
 # Draw
-draw_detections(img, det_boxes, [])
+# draw_detections(img, det_boxes, [])
