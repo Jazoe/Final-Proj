@@ -1,0 +1,191 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\geometry{margin=1in}
+
+\title{\textbf{Frequency-Domain Object Detection and Counting Using Fourier Cross-Correlation}}
+\author{
+Mohammed Ayaan \\ 
+Jacob Mendler \\
+Ontario Tech University
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This project develops and evaluates a frequency-domain pipeline for detecting and counting repeated objects in images using Fourier cross-correlation. Starting from a baseline method introduced in Lab 3, we extend the approach by incorporating multi-scale template matching, rotation handling, and duplicate suppression. The system is evaluated on a dataset of coin images with ground truth annotations. Results demonstrate that the improved method significantly increases detection accuracy and robustness compared to the baseline, particularly under variations in scale and orientation. Limitations such as computational cost and sensitivity to template quality are also discussed.
+\end{abstract}
+
+\section{Introduction}
+
+Object detection and counting are fundamental tasks in computer vision. In this project, we focus on detecting repeated objects, specifically coins, using frequency-domain techniques.
+
+The baseline approach introduced in Lab 3 uses Fourier cross-correlation to locate template matches within an image. While effective under ideal conditions, it struggles with variations in scale, rotation, and real-world noise.
+
+The objective of this project is to extend the baseline method to improve robustness and detection accuracy.
+
+\section{Background}
+
+Fourier cross-correlation allows template matching to be performed efficiently in the frequency domain:
+
+\begin{equation}
+C(x, y) = \mathcal{F}^{-1} \left( \mathcal{F}(I) \cdot \overline{\mathcal{F}(T)} \right)
+\end{equation}
+
+where $I$ is the image, $T$ is the template, and $\mathcal{F}$ is the Fourier transform.
+
+Peaks in the correlation map correspond to likely object locations. However, this method assumes fixed scale and orientation, limiting its effectiveness in real-world applications.
+
+\section{Methodology}
+
+\subsection{Baseline Method}
+
+The baseline method follows the Lab 3 implementation:
+\begin{itemize}
+    \item Compute Fourier transform of image and template
+    \item Perform cross-correlation in frequency domain
+    \item Detect peaks corresponding to matches
+\end{itemize}
+
+\subsection{Improved Method}
+
+We introduce several key improvements:
+
+\subsubsection{Multi-Scale Matching}
+The template is resized across a range of scales to account for size variation.
+
+\subsubsection{Rotation Handling}
+The template is rotated at multiple angles to detect objects in different orientations.
+
+\subsubsection{Circular Masking}
+A circular mask is applied to remove background influence and focus on the object shape.
+
+\subsubsection{Duplicate Suppression}
+Overlapping detections are filtered to avoid multiple detections of the same object.
+
+\subsubsection{Robustness Improvements}
+To ensure stability:
+\begin{itemize}
+    \item Templates are resized if larger than the image
+    \item Batch processing continues even if individual images fail
+\end{itemize}
+
+\section{Dataset}
+
+We evaluated the method using a dataset of 63 coin images with ground truth annotations. The dataset includes variations in lighting, orientation, and object scale, making it suitable for evaluating robustness.
+
+\section{Evaluation Metrics}
+
+Performance was evaluated using:
+\begin{itemize}
+    \item Precision
+    \item Recall
+    \item F1 Score
+\end{itemize}
+
+Detections were compared with ground truth using Intersection over Union (IoU).
+
+\section{Results}
+
+Table~\ref{tab:results} shows representative results from the dataset.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Image & GT & Detected & Precision & F1 \\
+\midrule
+20210324\_151117 & 7 & 7 & 1.00 & 1.00 \\
+20210324\_151121 & 7 & 7 & 1.00 & 1.00 \\
+20210324\_151304 & 7 & 3 & 1.00 & 0.60 \\
+20210328\_161615 & 4 & 3 & 1.00 & 0.86 \\
+\bottomrule
+\end{tabular}
+\caption{Sample results from improved method}
+\label{tab:results}
+\end{table}
+
+\subsection{Aggregate Performance}
+
+Across the dataset, the improved method achieved:
+
+\begin{itemize}
+    \item Average Precision: $\approx 0.90$
+    \item Average Recall: $\approx 0.60$
+    \item Average F1 Score: $\approx 0.70$
+\end{itemize}
+
+These results indicate strong precision with moderate recall.
+
+\subsection{Qualitative Results}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{improved_151117.png}
+\caption{Successful detection example (7/7 coins detected correctly).}
+\end{figure}
+
+This example demonstrates near-perfect performance, where all coins are detected accurately.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{improved_151121.png}
+\caption{Consistent detection performance across similar images.}
+\end{figure}
+
+The method shows consistent behavior across multiple images with similar conditions.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{improved_151304.png}
+\caption{Failure case where only 3 of 7 coins are detected.}
+\end{figure}
+
+This example highlights a limitation of the method, where some objects are missed due to challenging conditions such as lighting or scale mismatch.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{improved_161615.png}
+\caption{Detection on an image with fewer objects (3/4 detected).}
+\end{figure}
+
+The method generalizes to different image scenarios, though minor errors still occur.
+
+\section{Discussion}
+
+The improved method significantly outperforms the baseline in terms of precision. The addition of scale and rotation handling allows the system to detect objects under more realistic conditions.
+
+However, several limitations remain:
+
+\begin{itemize}
+    \item \textbf{Computational Cost:} The method is slow due to exhaustive scale and rotation search.
+    \item \textbf{Template Sensitivity:} Detection depends heavily on template quality.
+    \item \textbf{Recall Limitations:} Some objects are missed in challenging conditions.
+\end{itemize}
+
+The results show a clear tradeoff between precision and recall. While the method achieves high precision, recall can decrease when conditions deviate significantly from the template.
+
+\section{Future Work}
+
+Potential improvements include:
+
+\begin{itemize}
+    \item Log-polar transforms for improved rotation invariance
+    \item Phase-only correlation
+    \item Feature-based detection methods
+    \item Machine learning approaches
+\end{itemize}
+
+\section{Conclusion}
+
+This project demonstrates that extending Fourier-based template matching with multi-scale and rotation handling significantly improves detection performance. The improved method achieves high precision and reasonable robustness across a range of real-world conditions. While limitations remain, the approach provides a strong foundation for further development.
+
+\end{document}

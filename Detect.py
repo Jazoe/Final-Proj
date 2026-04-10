@@ -220,8 +220,11 @@ def draw_detections(image, detections, ground_truth=None,
 
 
 # Load
-img_t = cv.imread('template.jpg', 0)
-img   = cv.imread('lemons.jpg', 0)
+# img_t = cv.imread('template.jpg', 0)
+# img   = cv.imread('lemons.jpg', 0)
+
+img = cv.imread('coins-1/20210328_161615.jpg', 0)
+img_t = cv.imread('cointemp.jpg', 0)
 # gt    = load_ground_truth('coins-1/20210324_151127.xml')
 
 H, W = img.shape
