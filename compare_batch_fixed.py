@@ -118,7 +118,7 @@ def rotate_template(template, angle):
     return cv.warpAffine(template, M, (new_w, new_h))
 
 
-def improved_detect(img, template):
+def improved_detect(img, img_t):
     H, W = img.shape
     scales = np.linspace(0.25, 1.25, 20)
     angles = np.arange(0, 360, 30)
@@ -136,24 +136,68 @@ def improved_detect(img, template):
     img_float = img.astype(np.float32)
 
     for scale in sorted(scales, reverse=True):
-        new_h = max(1, int(template.shape[0] * scale))
-        new_w = max(1, int(template.shape[1] * scale))
-        tmpl_scaled = apply_circular_mask(cv.resize(template, (new_w, new_h)))
+        new_h = max(1, int(img_t.shape[0] * scale))
+        new_w = max(1, int(img_t.shape[1] * scale))
+        tmpl_scaled = apply_circular_mask(cv.resize(img_t, (new_w, new_h)))
+        h_t, w_t = tmpl_scaled.shape  # unrotated template size — defines our coordinate system
+
+        if h_t > H or w_t > W:
+            continue
+
+        # Output map aligned to unrotated-template coordinates.
+        # Position (r, c) here means "unrotated template top-left at image (r, c)".
+        H_out = H - h_t + 1
+        W_out = W - w_t + 1
+        best_corr = np.full((H_out, W_out), -np.inf, dtype=np.float32)
 
         for angle in angles:
             tmpl = rotate_template(tmpl_scaled, angle)
-            h_t, w_t = tmpl.shape
-            if h_t > H or w_t > W:
+            th_r, tw_r = tmpl.shape  # rotated size — larger than (h_t, w_t)
+            if th_r > H or tw_r > W:
                 continue
 
             corr = cv.matchTemplate(img_float, tmpl, cv.TM_CCOEFF_NORMED)
-            inverted = -corr
-            min_dist = max(10, min(h_t, w_t) // 3)
-            peaks = peak_local_max(inverted, min_distance=min_dist, threshold_abs=0.65)
+            corr = -corr
+            # corr[r, c] = score when rotated template's top-left is at image (r, c).
+            # The original object's center is at (r + th_r//2, c + tw_r//2).
+            # In unrotated coords, top-left = center - (h_t//2, w_t//2)
+            #   => unrotated row = r + (th_r - h_t) // 2
+            #   => unrotated col = c + (tw_r - w_t) // 2
+            row_off = (th_r - h_t) // 2
+            col_off = (tw_r - w_t) // 2
 
-            for (row, col) in sorted(peaks, key=lambda p: inverted[p[0], p[1]], reverse=True):
-                if not center_inside_confirmed(row, col, h_t, w_t):
-                    confirmed.append((row, col, h_t, w_t, inverted[row, col]))
+            # Destination region in best_corr
+            r0 = row_off
+            c0 = col_off
+            r1 = r0 + corr.shape[0]
+            c1 = c0 + corr.shape[1]
+
+            # Clip to output map bounds
+            r0c, c0c = max(0, r0), max(0, c0)
+            r1c, c1c = min(H_out, r1), min(W_out, c1)
+
+            # Corresponding source region in corr
+            cr0 = r0c - r0
+            cc0 = c0c - c0
+            cr1 = cr0 + (r1c - r0c)
+            cc1 = cc0 + (c1c - c0c)
+
+            if r1c > r0c and c1c > c0c:
+                best_corr[r0c:r1c, c0c:c1c] = np.maximum(
+                    best_corr[r0c:r1c, c0c:c1c],
+                    corr[cr0:cr1, cc0:cc1]
+                )
+
+        # Mask out -inf padding before peak detection
+        valid = best_corr > -np.inf
+        best_corr[~valid] = 0.0
+
+        min_dist = max(10, min(h_t, w_t) // 3)
+        peaks = peak_local_max(best_corr, min_distance=min_dist, threshold_abs=0.5)
+
+        for (row, col) in sorted(peaks, key=lambda p: best_corr[p[0], p[1]], reverse=True):
+            if not center_inside_confirmed(row, col, h_t, w_t):
+                confirmed.append((row, col, h_t, w_t, best_corr[row, col]))
 
     return [(d[0], d[1], d[2], d[3]) for d in confirmed]
 

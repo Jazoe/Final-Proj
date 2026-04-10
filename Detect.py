@@ -160,9 +160,9 @@ def draw_detections(image, detections, ground_truth=None,
 # img_t = cv.imread('template.jpg', 0)
 # img   = cv.imread('lemons.jpg', 0)
 
-img = cv.imread('coins-1/20210324_151127.jpg', 0)
+img = cv.imread('coins-1/20210324_151141.jpg', 0)
 img_t = cv.imread('cointemp.jpg', 0)
-gt    = load_ground_truth('coins-1/20210324_151127.xml')
+gt    = load_ground_truth('coins-1/20210324_151141.xml')
 
 H, W = img.shape
 
@@ -265,7 +265,7 @@ metrics   = evaluate(det_boxes, gt, IOU_THRESHOLD)
 print(f"\nDetected: {len(final_detections)}   Ground truth: {len(gt)}")
 print(f"TP={metrics['TP']}  FP={metrics['FP']}  FN={metrics['FN']}")
 print(f"Precision={metrics['precision']:.2f}  Recall={metrics['recall']:.2f}  F1={metrics['f1']:.2f}")
-print(f"\nPer-detection best IoU: {[round(v,2) for v in metrics['per_det_iou']]}")
+print(f"\nPer-detection best IoU: {[round(float(v),2) for v in metrics['per_det_iou']]}")
 
 # Draw
-# draw_detections(img, det_boxes, [])
+draw_detections(img, det_boxes, [])
