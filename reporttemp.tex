@@ -1,28 +1,48 @@
-\documentclass{article}
-\usepackage{graphicx}
-\usepackage{amsmath}
+\documentclass[12pt, letterpaper, twoside]{article}
 \usepackage{geometry}
-\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[runin]{abstract}
+\usepackage{titling}
 \usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{helvet}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{blindtext}
+\usepackage{parskip}
+\usepackage{etoolbox}
+\usepackage{amsmath}
+\usepackage{float}
 \usepackage{hyperref}
 
-\geometry{margin=1in}
+\input{preamble.tex}
 
 \title{\textbf{Frequency-Domain Object Detection and Counting Using Fourier Cross-Correlation}}
-\author{
-Mohammed Ayaan \\ 
-Jacob Mendler \\
-Ontario Tech University
-}
-\date{}
+\author{Mohammed Ayaan \\ 100xxxxxxx \and Jacob Mendler \\ 100911093}
+\runningtitle{} % Short title
+\runningauthor{Jacob Mendler and Mohammed Ayaan}
+\affiliation{Ontario Tech University}
+\department{Faculty of Science, Computer Science}
+\memoid{}
+\theyear{2026}
+\mydate{April 10, 2026}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-This project develops and evaluates a frequency-domain pipeline for detecting and counting repeated objects in images using Fourier cross-correlation. Starting from a baseline method introduced in Lab 3, we extend the approach by incorporating multi-scale template matching, rotation handling, and duplicate suppression. The system is evaluated on a dataset of coin images with ground truth annotations. Results demonstrate that the improved method significantly increases detection accuracy and robustness compared to the baseline, particularly under variations in scale and orientation. Limitations such as computational cost and sensitivity to template quality are also discussed.
+\noindent \\\\ This project develops and evaluates a frequency-domain pipeline for detecting and counting repeated objects in images using Fourier cross-correlation. Starting from a baseline method introduced in Lab 3, we extend the approach by incorporating multi-scale template matching, rotation handling, and duplicate suppression. The system is evaluated on a dataset of coin images with ground truth annotations. Results demonstrate that the improved method significantly increases detection accuracy and robustness compared to the baseline, particularly under variations in scale and orientation. Limitations such as computational cost and sensitivity to template quality are also discussed.
 \end{abstract}
+
+\vspace{2.5cm}
+
+\thispagestyle{firstpage}
+
+\pagebreak
+
+\newgeometry{}
 
 \section{Introduction}
 
@@ -125,22 +145,27 @@ Across the dataset, the improved method achieved:
 
 These results indicate strong precision with moderate recall.
 
+\clearpage
+\raggedbottom
 \subsection{Qualitative Results}
-
+\setlength{\intextsep}{0pt}%
+\vspace{2em}
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{improved_151117.png}
 \caption{Successful detection example (7/7 coins detected correctly).}
 \end{figure}
-
+\vspace{-\parskip}
 This example demonstrates near-perfect performance, where all coins are detected accurately.
+
+\enlargethispage{5cm}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{improved_151121.png}
 \caption{Consistent detection performance across similar images.}
 \end{figure}
-
+\vspace{-\parskip}
 The method shows consistent behavior across multiple images with similar conditions.
 
 \begin{figure}[H]
@@ -148,15 +173,17 @@ The method shows consistent behavior across multiple images with similar conditi
 \includegraphics[width=0.6\textwidth]{improved_151304.png}
 \caption{Failure case where only 3 of 7 coins are detected.}
 \end{figure}
-
+\vspace{-\parskip}
 This example highlights a limitation of the method, where some objects are missed due to challenging conditions such as lighting or scale mismatch.
+
+\enlargethispage{5cm}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{improved_161615.png}
 \caption{Detection on an image with fewer objects (3/4 detected).}
 \end{figure}
-
+\vspace{-\parskip}
 The method generalizes to different image scenarios, though minor errors still occur.
 
 \section{Discussion}

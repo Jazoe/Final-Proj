@@ -1,0 +1,86 @@
+% preamble.tex
+
+\geometry{letterpaper, top=2.2in, headheight=1.7in}
+\date{}
+
+\makeatletter
+
+\def\fulltitle#1{\def\@fulltitle{#1}}
+\def\runningtitle#1{\def\@runningtitle{#1}}
+\def\runningauthor#1{\def\@runningauthor{#1}}
+\def\affiliation#1{\def\@affiliation{#1}}
+\def\department#1{\def\@department{#1}}
+\def\memoid#1{\def\@memoid{#1}}
+\def\theyear#1{\def\@theyear{#1}}
+\def\mydate#1{\def\@mydate{#1}}
+
+\runningtitle{How to write an effective report} % Short title
+\author{Your name \and John Doe \and Jane Doe} % Full list of authors
+\runningauthor{Your name et al.} % Short list of authors
+\affiliation{Your University} % Affiliation e.g. University or Company
+\department{Your Department} % Department or Office
+\memoid{AI Memo 777} % ID of the tech report
+\theyear{2018} % year of the tech report
+\mydate{August 08, 2018} %the date
+
+\def\displaymydate{\@mydate}
+\def\displaytheyear{\@theyear}
+\def\displaymemoid{\@memoid}
+\def\displaydepartment{\@department}
+\def\displayaffiliation{\@affiliation}
+\def\displayrunningauthor{\@runningauthor}
+\def\displayrunningtitle{\@runningtitle}
+
+\makeatother
+
+\makeatletter
+\patchcmd{\@zfancyhead}{\fancy@reset}{\f@nch@reset}{}{}
+\patchcmd{\@set@em@up}{\f@ncyolh}{\f@nch@olh}{}{}
+\patchcmd{\@set@em@up}{\f@ncyolh}{\f@nch@olh}{}{}
+\patchcmd{\@set@em@up}{\f@ncyorh}{\f@nch@orh}{}{}
+\makeatother
+
+% ----------
+% fancyhdr setup
+% ----------
+
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\fancypagestyle{firstpage}
+{
+    \fancyhf{}
+    \fancyhead{%
+        \begin{center}
+            \textsc{\displayaffiliation}\\
+            \textsc{\displaydepartment}
+        \end{center}
+        \vspace*{0.5in}
+        \displaymemoid
+        \hfill
+        \displaymydate
+    }
+    \fancyfoot[L]{\footnotesize \textbf{\textsc{\displayaffiliation} -- \displaytheyear}}
+}
+\fancyhead[EL]{\small \displayrunningauthor}
+\fancyhead[ER]{\small Page \thepage}
+\fancyhead[OL]{\small Page \thepage}
+\fancyhead[OR]{\small \displayrunningtitle}
+
+\chead{}
+\lfoot{}
+\cfoot{}
+\rfoot{}
+
+% ----------
+
+\providecommand{\keywords}[1]{\noindent \textbf{Keywords:} #1} % keywords definition
+
+\renewcommand{\familydefault}{\sfdefault} % sans-serif font
+\setlength{\parskip}{1em} % 1em skip between paragraphs
+\abslabeldelim{:} % use colon after the run-in 'Abstract' word
+\setlength{\parindent}{0pt} % no indentantion for first page 
+\setlength{\abstitleskip}{-\absparindent} % this is because the abstract package sets \absparindent to \parindent
+
+\pretitle{\Large \begin{center}}
+\posttitle{\\[2ex] \Large \textbf{by}\end{center}}
